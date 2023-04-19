@@ -1,7 +1,6 @@
 import scrapy
 from scrapy import Selector
 
-
 class ApnajobsSpider(scrapy.Spider):
     name = "apnajobs"
     allowed_domains = ["apna.co"]
@@ -12,16 +11,18 @@ class ApnajobsSpider(scrapy.Spider):
         for job in jobapna:
             job_url = "https://apna.co"+job
             yield scrapy.Request(url=job_url, callback=self.parse_job)
-        self.page_count += 1
-        if self.page_count >= 10:
-            return
-    # Extract URL for next page, if available
-        next_page_url = response.css(".pagination li a[@rel='next']::attr(href)").get()
-        if next_page_url:
-            yield scrapy.Request(url=next_page_url, callback=self.parse)
-       
-# for i in range(10):
-#     print(i)
+
+    def start_requests(self):
+        categories = ['full_time-jobs', 'part_time-jobs']
+        i=0
+        while True:
+         for categories in categories:
+            url = f"https://apna.co/jobs/{categories}?page={i}"
+            yield scrapy.Request(url=url, callback=self.parse)
+            i += 1
+            if i==500:
+             break  
+
     def parse_job(self, response):
         # print("=== Job Details ===",response)
         Jobtitle = response.xpath("//h1/text()").get().strip()
@@ -29,9 +30,9 @@ class ApnajobsSpider(scrapy.Spider):
         JobArea = response.xpath("//div[contains(@class,'styles__TextJobArea-sc-15yd6lj-7 cHFGaJ')]/text()").get().strip()
         JobSalary = response.xpath("//div[contains(@class,'styles__TextJobSalary-sc-15yd6lj-8 dGHiHv')]/text()").get().strip().replace("\n","").replace("\t","")
         try:
-            Jobdescription = response.xpath("//div[contains(@class,'styles__JobDescriptionContainer-sc-1532ppx-17 eSHFNy')]/text()").get().strip()
+            Jobdescription = response.xpath("(//div[contains(@class,'styles__JobDescriptionContainer-sc-1532ppx-17 eSHFNy')]//p)[1]/text()").getall().strip()
         except:
-            Jobdescription = response.xpath("//div[contains(@class,'styles__JobDescriptionContainer-sc-1532ppx-17 eSHFNy')]/text()").get()
+            Jobdescription = response.xpath("(//div[contains(@class,'styles__JobDescriptionContainer-sc-1532ppx-17 eSHFNy')]//p)[1]/text()").getall()
 
         job_dict = {
             'Jobtitle': Jobtitle,
@@ -44,8 +45,8 @@ class ApnajobsSpider(scrapy.Spider):
         job_details = response.xpath("//div[@class='styles__JobDetailSection-sc-1532ppx-12 eVTLMf']/div").getall()
         for i in job_details:
             tit = Selector(text=i)
-            k = tit.xpath("//div[@class='styles__JobDetailBlockHeading-sc-1532ppx-2 iGzafA']/text()").get().strip()
-            v = tit.xpath("//div[@class='styles__JobDetailBlockValue-sc-1532ppx-3 jtaqAv']/text()").get().strip()
-            job_dict[k]=v
+            key = tit.xpath("//div[@class='styles__JobDetailBlockHeading-sc-1532ppx-2 iGzafA']/text()").get().strip()
+            value = tit.xpath("//div[@class='styles__JobDetailBlockValue-sc-1532ppx-3 jtaqAv']/text()").get().strip()
+            job_dict[key]=value
         print(job_dict)
         yield job_dict
